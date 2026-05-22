@@ -334,10 +334,14 @@ class GenericAgentHost:
 
                     logger.info("📨 %s", user_message)
 
-                    # Multi-message pattern: immediate ack, typing indicator loop,
-                    # then the final LLM response. Mirrors the C# StreamingResponse
-                    # flow (QueueInformativeUpdateAsync + QueueTextChunk).
-                    await context.send_activity("Working on your request...")
+                    # Multi-message pattern: typing indicator loop, then the
+                    # final LLM response. Mirrors the C# StreamingResponse flow
+                    # (QueueInformativeUpdateAsync + QueueTextChunk).
+                    #
+                    # Optional "Working on your request..." informative message.
+                    # Uncomment if you want the explicit text bubble in addition
+                    # to Teams' built-in typing animation.
+                    # await context.send_activity("Working on your request...")
                     await context.send_activity(Activity(type="typing"))
 
                     async def _typing_loop() -> None:
