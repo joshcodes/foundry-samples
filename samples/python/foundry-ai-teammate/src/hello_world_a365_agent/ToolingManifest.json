@@ -19,12 +19,6 @@
 			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
 		},
 		{
-			"mcpServerName": "mcp_TeamsServer",
-			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_TeamsServer",
-			"scope": "McpServers.Teams.All",
-			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
-		},
-		{
 			"mcpServerName": "mcp_ExcelServer",
 			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_ExcelServer",
 			"scope": "McpServers.Excel.All",
@@ -34,6 +28,36 @@
 			"mcpServerName": "mcp_CalendarTools",
 			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_CalendarTools",
 			"scope": "McpServers.Calendar.All",
+			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+		},
+		{
+			"mcpServerName": "mcp_MeServer",
+			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_MeServer",
+			"scope": "McpServers.Me.All",
+			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+		},
+		{
+			"mcpServerName": "mcp_M365Copilot",
+			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_M365Copilot",
+			"scope": "McpServers.CopilotMCP.All",
+			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+		},
+		{
+			"mcpServerName": "mcp_OneDriveRemoteServer",
+			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_OneDriveRemoteServer",
+			"scope": "McpServers.OneDrive.All",
+			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+		},
+		{
+			"mcpServerName": "mcp_SharePointRemoteServer",
+			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_SharePointRemoteServer",
+			"scope": "McpServers.SharePoint.All",
+			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
+		},
+		{
+			"mcpServerName": "mcp_TeamsServer",
+			"url": "https://agent365.svc.cloud.microsoft/agents/servers/mcp_TeamsServer",
+			"scope": "McpServers.Teams.All",
 			"audience": "ea9ffc3e-8a23-4a7d-836d-234d7c7565c1"
 		}
 	]

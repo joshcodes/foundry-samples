@@ -11,8 +11,8 @@ Write-Host "===============Creating Agent Version==============="
 $agentGuid = & "$PSScriptRoot/agent-creation-script.ps1"
 
 Write-Host "===============Publishing digital worker==============="
-
-& "$PSScriptRoot/publish-digital-worker.ps1" -AgentGuid $agentGuid
+Write-Host "SKIPPED: digital worker is already published. New agent versions roll out to active instances automatically via the @latest version selector. Only re-run publish-digital-worker.ps1 manually if you intentionally want a new publish record."
+# & "$PSScriptRoot/publish-digital-worker.ps1" -AgentGuid $agentGuid
 
 # TODO: temporary fix until service starts doing it.
 # oAuth2grants for blueprint SP for inheritable scopes to work.
