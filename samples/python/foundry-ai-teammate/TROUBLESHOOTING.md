@@ -169,6 +169,31 @@ The shipped `scripts/post-provision.ps1` has the publish step commented out
 specifically so accidental re-provisions don't re-publish. Only un-comment
 it if you intentionally want to register a brand-new digital worker.
 
+### ⚠️ Always use `build-docker-image-acr.ps1` — never bare `az acr build`
+
+The Dockerfile takes **5 build arguments** that get baked into the image
+as ENV vars (read at container start by `agent.py` and the MSAL connection
+manager):
+
+- `BLUEPRINT_CLIENT_ID`
+- `AUTHORITY_ENDPOINT`
+- `TENANT_ID`
+- `AZURE_OPENAI_ENDPOINT`
+- `MODEL_DEPLOYMENT`
+
+If you run `az acr build` directly without `--build-arg` values, the image
+builds and pushes successfully, the new agent version reports
+`status: "active"`, **and the container will silently fail to respond** —
+because `AzureOpenAIEndpoint` and the MSAL connection settings are empty
+strings inside the container. The agent looks healthy to the Foundry
+control plane but Teams chats just hang with no reply.
+
+Always rebuild via:
+```powershell
+./scripts/build-docker-image-acr.ps1
+```
+which sources the build args from `azd env get-values`.
+
 ### Pinning to a specific version (for debugging a bad rollout)
 
 If a new version doesn't ready (HTTP 502 readiness failures), you can pin
@@ -202,29 +227,32 @@ unpin.
 
 ## 6. ACR build name length / character constraints
 
-**Symptom**: `azd provision` fails creating the Azure Container Registry
-with an error about invalid name.
+**Symptom (older versions of this sample)**: `azd provision` fails creating the
+Azure Container Registry with an error about invalid name.
 
 **Cause**: ACR names must be alphanumeric only (no hyphens, no underscores).
 The Bicep computes `${environmentName}acr`, so if your `environmentName`
-contains a hyphen, ACR creation fails.
+contained a hyphen, ACR creation would fail.
 
-**Fix**: when you `azd env new` or set `infra.parameters.environmentName`,
-use lowercase alphanumeric only (e.g. `signalteammate`, not
-`signal-teammate`). The Bicep still lets `agentName` be hyphenated
-separately.
+**Fix in this sample (already applied)**: `infra/main.bicep` uses
+`replace(environmentName, '-', '')` when defaulting `containerRegistryName`,
+so hyphens in `environmentName` are stripped automatically for the ACR
+resource (other resources keep the original name). You can still pass
+`-p containerRegistryName=...` to override if needed.
 
 ---
 
-## 7. azd needs the bicep params set even though they look "obvious"
+## 7. azd parameter wiring
 
-**Symptom**: `azd provision --no-prompt` fails with
-`missing required inputs: environmentName, location`.
+**Symptom (older versions of this sample)**: `azd provision --no-prompt` fails
+with `missing required inputs: environmentName, location`.
 
-**Cause**: `azd` doesn't automatically pass `AZURE_ENV_NAME` /
-`AZURE_LOCATION` into the Bicep `environmentName` / `location` params.
+**Fix in this sample (already applied)**: `infra/main.parameters.json` maps
+`${AZURE_ENV_NAME}` → `environmentName` and `${AZURE_LOCATION}` →
+`location`, so azd populates the Bicep params automatically from the
+environment.
 
-**Fix**:
+If for some reason you need to override one of them:
 ```powershell
 azd env config set infra.parameters.environmentName <your-env-name>
 azd env config set infra.parameters.location swedencentral
@@ -258,19 +286,33 @@ within ~1 minute of the failed turn.
 
 ---
 
-## 9. Multi-agent chats and the typing indicator
+## 9. Multi-agent chats, the typing indicator, and tool-result narration
 
-Two unrelated quality-of-life things people hit:
+Three unrelated quality-of-life things people hit:
 
 - **`Working on your request...` chat bubble**: comes from a literal
   `await context.send_activity("Working on your request...")` near line 340
   in `host_agent_server.py`. Comment it out (leave the
   `Activity(type="typing")` line below it) if you want Teams' built-in
-  silent typing animation only.
+  silent typing animation only. This sample ships it commented out.
 - **Multiple AI agents in one chat racing**: when you have several AI agents
   added to the same Teams chat (e.g. Signals + Carson), the SDK can drop one
   agent's final reply if both think they were addressed. Test in a 1:1 chat
   or use explicit `@`-mentions to disambiguate.
+- **Agent narrates Teams MCP tool calls in the chat** (e.g. extra bubble
+  "Your message has been sent successfully in the Teams chat",
+  "Your reply has been sent successfully", "Message sent: …"): this is
+  the model calling `mcp_TeamsServer.sendMessage` to reply in the *current*
+  chat and then echoing the tool's success payload as a follow-up
+  assistant message. Two prompt rules in this sample's `agent.py` prevent
+  it; if you fork or rewrite the system prompt, keep them:
+  1. *Replying in the current Teams chat* — explicitly tell the model the
+     host runtime already posts its text reply into the current chat, and
+     it must only call `mcp_TeamsServer` to send to a **different** chat
+     or channel.
+  2. *Never narrate tool calls* — explicitly forbid repeating tool
+     success/status payloads back to the user (give substantive answer
+     only).
 
 ---
 

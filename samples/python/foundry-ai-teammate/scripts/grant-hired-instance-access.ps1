@@ -39,8 +39,8 @@ $azd = @{}
 azd env get-values 2>$null | ForEach-Object {
     if ($_ -match '^([A-Z_]+)="?(.*?)"?$') { $azd[$matches[1]] = $matches[2] }
 }
-if (-not $SubscriptionId)  { $SubscriptionId  = $azd["SUBSCRIPTION_ID"]  ?? $azd["AZURE_SUBSCRIPTION_ID"] }
-if (-not $ResourceGroup)   { $ResourceGroup   = $azd["RESOURCE_GROUP"]   ?? $azd["AZURE_RESOURCE_GROUP"] }
+if (-not $SubscriptionId)  { $SubscriptionId  = if ($azd["SUBSCRIPTION_ID"]) { $azd["SUBSCRIPTION_ID"] } else { $azd["AZURE_SUBSCRIPTION_ID"] } }
+if (-not $ResourceGroup)   { $ResourceGroup   = if ($azd["RESOURCE_GROUP"])  { $azd["RESOURCE_GROUP"] }  else { $azd["AZURE_RESOURCE_GROUP"] } }
 if (-not $AccountName)     { $AccountName     = $azd["ACCOUNT_NAME"] }
 if (-not $ProjectName)     { $ProjectName     = $azd["PROJECT_NAME"] }
 
