@@ -103,6 +103,37 @@ After configuring the agent blueprint in Teams Developer Portal, you can now cre
 2. Find your agent blueprint and create an instance:
    ![Screenshot of Microsoft Teams showing the 'Agents for your team' section with an agent listed](image-4.png)
 
+### Step 6: Grant the hired instance access (REQUIRED)
+
+> **⚠️ The post-provision scripts only configure the *blueprint* identity. Every hired instance in Teams gets its own brand-new service principal (the "AI") that starts with zero OAuth grants and zero Azure RBAC.** Without this step, the very first message in Teams will fail with `Status: 400` or `Endpoint doesn't support entra auth`.
+
+1. In Entra **Enterprise Applications**, find the service principal whose display name matches your hired instance (e.g. `Signal Digital Worker`). Copy its **Application ID**.
+2. From the sample root, run:
+   ```powershell
+   ./scripts/grant-hired-instance-access.ps1 -AiClientId <hired-instance-appId>
+   ```
+   This grants:
+   - All `McpServers.*` OAuth2 scopes on the Agent Tools resource and `AgentData.ReadWrite` on the Messaging Bot API resource (both AllPrincipals delegated grants).
+   - `Foundry User` on the Foundry account *and* project; `Cognitive Services User` and `Cognitive Services OpenAI User` on the Foundry account.
+3. Wait 1–2 minutes for RBAC to propagate, then chat with the agent in Teams.
+
+For details and other failure modes, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+
+---
+
+## 🔄 Rolling out changes (DO NOT re-publish)
+
+When you change `agent.py`, `ToolingManifest.json`, or any container code, the rollout flow is:
+
+```powershell
+./scripts/build-docker-image-acr.ps1     # rebuild + push image
+./scripts/agent-creation-script.ps1      # create a new agent version
+```
+
+The agent endpoint's `version_selector` is set to `@latest` and routes 100% of traffic to the newest active version. Existing hired instances pick up the new code automatically — **no re-hire, no re-publish, no admin re-approval required**.
+
+**Do NOT re-run `publish-digital-worker.ps1`** for code/manifest updates. That creates a *new* digital worker publish record and leaves already-hired instances stranded on the old version. The shipped [`post-provision.ps1`](./scripts/post-provision.ps1) has the publish step commented out for this reason — only run it the first time you publish a digital worker.
+
 ---
 
 ## 🏗️ Architecture Overview
@@ -163,6 +194,7 @@ curl -N \
 
 ## 📖 Additional Resources
 
+- [**Troubleshooting guide**](./TROUBLESHOOTING.md) — symptoms + fixes for the common gotchas (blueprint approval, hired-instance grants, version pinning, log streaming, etc.)
 - [Foundry Container Agents Documentation](https://github.com/microsoft/container_agents_docs)
 - [Azure Developer CLI Documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/)
 - [Agent Blueprint Configuration](https://dev.teams.microsoft.com/tools/agent-blueprint)
