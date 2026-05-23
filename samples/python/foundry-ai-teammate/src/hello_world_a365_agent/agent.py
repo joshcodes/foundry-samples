@@ -76,9 +76,17 @@ class FoundryDigitalWorkerAgent(AgentInterface):
         "- Format responses in html\n\n"
         "When handling email-related requests:\n"
         "- Use professional and formal language in all email correspondence\n"
-        "- Use the SendEmail function to send any responses back\n"
-        "- You can use AAD object ID inside the Activity context's 'From' Field to "
-        "determine where to respond to emails from.\n\n"
+        "- IMPORTANT: Email has NO auto-reply. To send a response back to an "
+        "email sender you MUST call a mail-send tool on mcp_MailTools (for "
+        "example a SendEmail / SendMail / ReplyToEmail tool). Your normal text "
+        "output is NOT delivered to email senders — it is only used for "
+        "in-Teams chat replies. If you only produce text, the sender will "
+        "receive nothing.\n"
+        "- Always extract the sender address from the email notification "
+        "context (From: field) and use it as the recipient when calling the "
+        "mail-send tool.\n"
+        "- Preserve the original subject (prefix with 'Re: ' if not already "
+        "present) when replying.\n\n"
         "# Replying in the current Teams chat — IMPORTANT\n"
         "You are already running inside a Teams chat. Your normal text reply "
         "is automatically posted into the current chat by the host runtime. "
@@ -413,10 +421,40 @@ class FoundryDigitalWorkerAgent(AgentInterface):
                     if email
                     else ""
                 )
+                # Extract sender + subject defensively across SDK shapes so the
+                # model has the context it needs to call the Mail MCP tool to
+                # reply. Unlike Teams, email has NO host-runtime auto-reply —
+                # the only way the sender gets a response is if the agent
+                # explicitly calls the mail tool.
+                sender_addr = ""
+                sender_name = ""
+                subject = ""
+                if email is not None:
+                    sender = (
+                        getattr(email, "sender", None)
+                        or getattr(email, "from_", None)
+                        or getattr(email, "from", None)
+                    )
+                    if sender is not None:
+                        sender_addr = (
+                            getattr(sender, "email_address", "")
+                            or getattr(sender, "address", "")
+                            or getattr(sender, "id", "")
+                            or str(sender)
+                        )
+                        sender_name = getattr(sender, "name", "") or ""
+                    subject = getattr(email, "subject", "") or ""
+
                 msg = (
-                    getattr(notification_activity, "text", "")
-                    or "You have received the following email. Please follow any "
-                    f"instructions in it. {email_body}"
+                    f"You have received an email and must reply to the sender by "
+                    f"calling the Mail MCP tool (mcp_MailTools). The agent's text "
+                    f"output alone is NOT delivered to the sender — only a mail "
+                    f"tool call actually sends a reply.\n"
+                    f"From: {sender_name} <{sender_addr}>\n"
+                    f"Subject: {subject}\n"
+                    f"Body: {email_body}\n\n"
+                    f"Compose a professional reply and send it via the Mail MCP "
+                    f"tool to the sender above. Do not just describe the email."
                 )
                 return await self._invoke_responses_api(
                     input_text=msg,
