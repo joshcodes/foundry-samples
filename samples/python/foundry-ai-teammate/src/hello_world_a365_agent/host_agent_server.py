@@ -80,6 +80,15 @@ logger = logging.getLogger(__name__)
 logger.info("📝 Logging configured at level %s (from LOG_LEVEL env)", _LOG_LEVEL_NAME)
 
 
+def _is_email_channel_id(channel_id: str) -> bool:
+    return channel_id.lower() in {"email", "agents:email"}
+
+
+def _email_responses_enabled() -> bool:
+    value = (os.getenv("ENABLE_EMAIL_RESPONSES") or "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 # ---------------------------------------------------------------------------
 # Key Vault + Application Insights bootstrap (matches Program.cs)
 # ---------------------------------------------------------------------------
@@ -188,6 +197,12 @@ class GenericAgentHost:
             logger.info("🔐 Using auth handler: %s", self.auth_handler_name)
         else:
             logger.info("🔓 No auth handler configured (AUTH_HANDLER_NAME not set)")
+        self.email_responses_enabled = _email_responses_enabled()
+        logger.info(
+            "📧 Email responses are %s (ENABLE_EMAIL_RESPONSES=%s)",
+            "enabled" if self.email_responses_enabled else "disabled",
+            os.getenv("ENABLE_EMAIL_RESPONSES", "(unset)"),
+        )
 
         self.agent_class = agent_class
         self.agent_args = agent_args
@@ -287,6 +302,14 @@ class GenericAgentHost:
         )
 
         async def help_handler(context: TurnContext, _: TurnState) -> None:
+            channel_id = getattr(context.activity, "channel_id", "") or ""
+            if _is_email_channel_id(channel_id) and not self.email_responses_enabled:
+                logger.info(
+                    "Email responses disabled by config; ignoring help message on channel_id=%s",
+                    channel_id,
+                )
+                return
+
             await context.send_activity(
                 f"👋 **Hi there!** I'm **{self.agent_class.__name__}**, your AI assistant.\n\n"
                 "How can I help you today?"
@@ -318,6 +341,14 @@ class GenericAgentHost:
         @self.agent_app.activity("message", **handler_config)
         async def on_message(context: TurnContext, _: TurnState) -> None:
             try:
+                channel_id = getattr(context.activity, "channel_id", "") or ""
+                if _is_email_channel_id(channel_id) and not self.email_responses_enabled:
+                    logger.info(
+                        "Email responses disabled by config; ignoring message on channel_id=%s",
+                        channel_id,
+                    )
+                    return
+
                 result = await self._validate_agent_and_setup_context(context)
                 if result is None:
                     return
@@ -387,6 +418,16 @@ class GenericAgentHost:
             notification_activity: AgentNotificationActivity,
         ) -> None:
             try:
+                if (
+                    not self.email_responses_enabled
+                    and notification_activity.notification_type
+                    == NotificationTypes.EMAIL_NOTIFICATION
+                ):
+                    logger.info(
+                        "Email responses disabled by config; ignoring email notification."
+                    )
+                    return
+
                 result = await self._validate_agent_and_setup_context(context)
                 if result is None:
                     return
