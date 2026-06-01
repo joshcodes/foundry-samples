@@ -131,6 +131,39 @@ For details and other failure modes, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.
 
 ---
 
+## 🧹 Cleanup / tearing it all down
+
+`azd down` only removes the Azure resources it provisioned. It does **not** revoke the OAuth2 grants and RBAC role assignments that `grant-hired-instance-access.ps1` created for each hired instance, and it does **not** retract the digital worker publish record. Tear things down in this order:
+
+1. **Per hired instance — revoke its grants and role assignments.**
+   For every hired-instance service principal you ran the grant script against, run the matching cleanup script:
+
+   ```powershell
+   ./scripts/cleanup-hired-instance-access.ps1 -AiClientId <hired-instance-appId>
+   ```
+
+   Add `-WhatIf` first to see exactly what would be deleted, or `-Force` to skip the confirmation prompt. The script is idempotent — missing grants and missing role assignments are reported and skipped.
+
+2. **(Optional) Delete the hired-instance service principal.**
+   The cleanup script intentionally leaves the SP in place so Entra audit logs stay coherent. If you want it gone:
+
+   ```powershell
+   az ad sp delete --id <hired-instance-appId>
+   ```
+
+3. **(Optional) Retract the digital worker publish record.**
+   Cleanup of the Microsoft 365 publish created by `publish-digital-worker.ps1` is done in the [Microsoft 365 admin center](https://admin.cloud.microsoft/?#/agents/all) — find the agent under **Agents**, then **Remove** it. There is no `azd`-managed counterpart for this step.
+
+4. **Tear down the Azure stack.**
+
+   ```powershell
+   azd down --purge
+   ```
+
+   `--purge` is recommended so the Foundry account, Key Vault, and other soft-deleted resources are fully removed rather than parked in the recovery state where their names stay reserved.
+
+---
+
 ## 🔄 Rolling out changes (DO NOT re-publish)
 
 When you change `agent.py`, `ToolingManifest.json`, or any container code, the rollout flow is:
